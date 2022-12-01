@@ -2,7 +2,7 @@ require 'open-uri'
 require 'gist'
 require 'digest'
 
-module StarterGem
+module AdventOfCode
   class DataNotFoundError < IOError; end
 
   class DataLoader
@@ -33,7 +33,7 @@ module StarterGem
         if File.exist?(filename)
           filename
         else
-          StarterGem.root.join(fallback_dir, filename)
+          AdventOfCode.root.join(fallback_dir, filename)
         end
       end
 
