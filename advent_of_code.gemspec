@@ -1,8 +1,8 @@
-require_relative "lib/starter_gem/version"
+require_relative "lib/advent_of_code/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "starter_gem"
-  spec.version = StarterGem::VERSION
+  spec.name = "advent_of_code"
+  spec.version = AdventOfCode::VERSION
   spec.authors = ["Tom ten Thij"]
   spec.email = ["code@tomtenthij.nl"]
 

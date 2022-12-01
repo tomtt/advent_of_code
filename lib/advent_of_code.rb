@@ -2,10 +2,10 @@
 
 Encoding.default_external = "UTF-8"
 
-require "starter_gem/version"
+require "advent_of_code/version"
 require "zeitwerk"
 
-module StarterGem
+module AdventOfCode
   class << self
     attr_reader :loader
 
@@ -23,4 +23,4 @@ module StarterGem
   end
 end
 
-StarterGem.setup_loader
+AdventOfCode.setup_loader

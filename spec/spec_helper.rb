@@ -1,5 +1,5 @@
 require "bundler/setup"
-require "starter_gem"
+require "advent_of_code"
 require "simplecov"
 require "pry"
 

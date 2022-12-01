@@ -2,7 +2,7 @@ require "pastel"
 
 Encoding.default_external = "UTF-8"
 
-module StarterGem
+module AdventOfCode
   class DoSomething
     def initialize(options, out: stdout, err: stderr)
       @options = options

@@ -1,6 +1,6 @@
 require "optparse"
 
-module StarterGem
+module AdventOfCode
   class Shell
     BANNER = <<~"MSG".freeze
       usage: #{$PROGRAM_NAME} color
@@ -16,7 +16,7 @@ module StarterGem
     def self.run(argv, out: $stdout, err: $stderr)
       options = gather_options(argv)
 
-      out.puts "version: #{StarterGem::VERSION}" if options.delete(:show_version)
+      out.puts "version: #{AdventOfCode::VERSION}" if options.delete(:show_version)
 
       usage(err: err) unless argv.size == 1
 
