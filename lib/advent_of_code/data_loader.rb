@@ -47,7 +47,6 @@ module AdventOfCode
         if url =~ /gist\.github\.com/
           Gist.read(url)
         else
-          (require('pry'); binding.pry)
           URI.parse(url).open.read
         end
       rescue OpenURI::HTTPError, SocketError
