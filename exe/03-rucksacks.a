@@ -1,0 +1,4 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+puts AdventOfCode::DataLoader.read("03").map(&:chars).map(&:elf_shared_item).map(&:elf_priority).sum

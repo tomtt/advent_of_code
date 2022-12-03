@@ -3,6 +3,8 @@
 Encoding.default_external = "UTF-8"
 
 require "advent_of_code/version"
+require "advent_of_code/elf_string"
+require "advent_of_code/elf_array"
 require "zeitwerk"
 
 module AdventOfCode
