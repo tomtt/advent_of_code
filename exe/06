@@ -1,0 +1,13 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+data = AdventOfCode::DataLoader.read("06")[0].chars
+
+def start(data, size)
+  # worked this one out on a command line trying to aim for speed of solving, so this is horrible
+  data.each_with_index.map { |x, i| [i,data[i - size + 1..i].uniq.size == size] }.select { |x| x[1] }[0][0] + 1
+end
+
+puts start(data, 4)
+puts start(data, 14)
+
