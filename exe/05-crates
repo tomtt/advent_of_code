@@ -75,4 +75,3 @@ data = AdventOfCode::DataLoader.read("05")
 crates, moves = data.split("")
 rearrange(crates, moves, "9000")
 rearrange(crates, moves, "9001")
-
