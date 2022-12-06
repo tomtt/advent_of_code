@@ -1,0 +1,78 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+
+class NilClass
+  def present?
+    false
+  end
+end
+
+class CrateLayout
+  def initialize
+    @crate_stacks = []
+  end
+
+  def count
+    @crate_stacks.count
+  end
+
+  def setup_stacks(number_line)
+    number_line[-1].to_i.times { @crate_stacks << [] }
+  end
+
+  def add_crate_layers(layers)
+    layers.each { |l| add_crate_layer(l) }
+  end
+
+  def pick_crate_from_layer(layer, index)
+    layer[1 + index * 4]
+  end
+
+  def add_crate_layer(layer)
+    count.times do |s|
+      if pick_crate_from_layer(layer, s).present?
+        @crate_stacks[s] << pick_crate_from_layer(layer, s)
+      end
+    end
+  end
+
+  def to_s
+    @crate_stacks.map(&:inspect).join("\n")
+  end
+
+  def move(from:, to:, number:, crane_model:)
+    moving = @crate_stacks[from].slice!(-number, number)
+    @crate_stacks[to] += crane_model =~ /9001/ ? moving : moving.reverse
+  end
+
+  def process_move_line(line, crane_model)
+    number, from, to = line.gsub(/[a-z]/, "").strip.split(/\s+/)
+    move(number: number.to_i, from: from.to_i - 1, to: to.to_i - 1, crane_model: crane_model)
+  end
+
+  def tops
+    @crate_stacks.map { |s| s[-1] }
+  end
+
+  def self.from_data(lines)
+    crate_layout = CrateLayout.new
+    crate_layout.setup_stacks(lines[-1])
+    crate_layout.add_crate_layers(lines[0..-2].reverse)
+    crate_layout
+  end
+end
+
+def rearrange(crates, moves, crane_model)
+  crate_layout = CrateLayout.from_data(crates)
+  moves.each do |m|
+    crate_layout.process_move_line(m, crane_model)
+  end
+  puts crate_layout.tops.join
+end
+
+data = AdventOfCode::DataLoader.read("05")
+crates, moves = data.split("")
+rearrange(crates, moves, "9000")
+rearrange(crates, moves, "9001")
+
