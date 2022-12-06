@@ -9,8 +9,8 @@ class NilClass
 end
 
 class CrateLayout
-  def initialize
-    @crate_stacks = []
+  def initialize(crate_stacks)
+    @crate_stacks = crate_stacks
   end
 
   def count
@@ -56,10 +56,13 @@ class CrateLayout
   end
 
   def self.from_data(lines)
-    crate_layout = CrateLayout.new
-    crate_layout.setup_stacks(lines[-1])
-    crate_layout.add_crate_layers(lines[0..-2].reverse)
-    crate_layout
+    crate_stacks =
+      lines[0..-2]
+      .map { |l| l.char_columns(offset: 1, step: 4, number: 9) }
+      .transpose
+      .map { |s| s.reverse.select(&:present?) }
+
+    CrateLayout.new(crate_stacks)
   end
 end
 
