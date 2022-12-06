@@ -47,8 +47,8 @@ class CrateLayout
   end
 
   def process_move_line(line, crane_model)
-    number, from, to = line.gsub(/[a-z]/, "").strip.split(/\s+/)
-    move(number: number.to_i, from: from.to_i - 1, to: to.to_i - 1, crane_model: crane_model)
+    number, from, to = line.ints
+    move(number: number, from: from - 1, to: to - 1, crane_model: crane_model)
   end
 
   def tops
