@@ -5,6 +5,10 @@ module AdventOfCode
       (c1 & c2).first
     end
 
+    def deep_clone
+      map { |e| e.respond_to?(:deep_clone) ? e.deep_clone : e }
+    end
+
     def split(element)
       lists = [[]]
       each do |i|
