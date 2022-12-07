@@ -1,0 +1,81 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+data = File.read(AdventOfCode.root.join("data_files", "07"))
+
+class ElfFilesystem
+  attr_reader :file_tree, :sizes
+
+  def initialize
+    @file_tree = { "/" => []}
+    @sizes = { "/" => 0 }
+    @cwd = ["/"]
+  end
+
+  def tree
+    @file_tree.keys
+  end
+
+  def cd_up
+    @cwd.pop
+  end
+
+  def cd(dir)
+    return if dir == "/"
+
+    if dir == ".."
+      cd_up
+      return
+    end
+
+    unless @file_tree.has_key? (@cwd + [dir]).join("/")
+      raise "cwd: #{@cwd.inspect} dir: #{dir} does not exist"
+    end
+
+    @cwd << dir
+  end
+
+  def mkdir(dir)
+    @file_tree[(@cwd + [dir]).join("/")] = []
+    @sizes[(@cwd + [dir]).join("/")] = 0
+  end
+
+  def ls(output)
+    output.each do |o|
+      size, filename = o.split
+      if size == "dir"
+        mkdir(filename)
+      else
+        @cwd.size.times do |i|
+          @sizes[@cwd[0..i].join("/")] += size.to_i
+        end
+
+        @file_tree[@cwd.join("/")] << [size.to_i, filename]
+      end
+    end
+  end
+
+  def add_command(cmd, output)
+    if cmd =~ /^cd/
+      cd(cmd.split[1])
+    else
+      ls(output)
+    end
+  end
+end
+
+fs = ElfFilesystem.new
+commands = data.split("$ ")
+commands = commands[1..-1].map do |cmd|
+  els = cmd.split("\n")
+  [els[0], els[1..-1]]
+end
+
+commands.each { |cmd| fs.add_command(cmd[0], cmd[1]) }
+answer_one = fs.sizes.to_a.select { |d| d[1] < 100000 }.map(&:last).sum
+puts "Sum of sizes of directories of maximum 100000 size: #{answer_one}"
+
+current_free_space = 70000000 - fs.sizes["/"]
+remaining_space_needed_to_be_cleared = 30000000 - current_free_space
+answer_two = fs.sizes.to_a.select { |d| d[1] >= remaining_space_needed_to_be_cleared }.map(&:reverse).sort[0][0]
+puts "Size of smallest directory whose clearing gives enough space for update: #{answer_two}"
