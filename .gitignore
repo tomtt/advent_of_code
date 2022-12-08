@@ -12,3 +12,4 @@
 Gemfile.lock
 dummy
 data_files
+exe/*lb
