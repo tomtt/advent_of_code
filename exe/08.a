@@ -1,0 +1,84 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+class Grid
+  attr_reader :values
+
+  def initialize(values)
+    @values = values
+  end
+
+  def self.from_strings(values)
+    new(values.map { |r| r.map(&:to_i) })
+  end
+
+  def val_to_s(val)
+    return "#" if val == true
+    return "." if val == false
+    return val
+  end
+
+  def to_s
+    @values.map { |x| x.map { |y| val_to_s(y) }.join }.join("\n")
+  end
+
+  def or(other)
+    result = @values.each_with_index.map { |r, i| r.or other.values[i] }
+    Grid.new(result.deep_clone)
+  end
+
+  def dup
+    Grid.new(@values.deep_clone)
+  end
+
+  def transpose
+    @values = @values.transpose
+    self
+  end
+end
+
+class TreeSpotter
+  def initialize(grid)
+    @horizontal = grid.dup
+    @vertical = grid.dup
+    @combined = nil
+  end
+
+  def mark_visible_trees_in_grid(grid)
+    grid.values.each { |r| mark_visible_trees_in_row(r) }
+  end
+
+  def mark_visible_trees_in_row(row)
+    l = row.map_to_is_first_occurence_of_value
+    r = row.reverse.map_to_is_first_occurence_of_value.reverse
+    row.size.times { |i| row[i] = l[i] || r[i] }
+    row
+  end
+
+  def mark_visible_trees
+    mark_visible_trees_in_grid(@horizontal)
+
+    @vertical.transpose
+    mark_visible_trees_in_grid(@vertical)
+    @vertical.transpose
+
+    @combined = @horizontal.or @vertical
+  end
+
+  def count
+    @combined.values.map { |r| r.count(true) }.sum
+  end
+
+  def to_s
+    @combined.to_s
+  end
+end
+
+grid = Grid.from_strings(File.read(AdventOfCode.root.join("data_files", "08")).to_grid)
+puts grid.dup
+tree_spotter = TreeSpotter.new(grid)
+tree_spotter.mark_visible_trees
+puts
+puts tree_spotter
+puts tree_spotter.count
+

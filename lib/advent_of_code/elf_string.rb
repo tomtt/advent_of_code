@@ -18,6 +18,11 @@ module AdventOfCode
       chars
     end
 
+    def to_grid
+      rows = split("\n")
+      rows.map { |r| r.strip.chars }
+    end
+
     def present?
       !gsub(/\s/, "").empty?
     end
