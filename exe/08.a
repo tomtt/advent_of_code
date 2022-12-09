@@ -39,6 +39,7 @@ end
 
 class TreeSpotter
   def initialize(grid)
+    @grid = grid.dup
     @horizontal = grid.dup
     @vertical = grid.dup
     @combined = nil
@@ -69,8 +70,16 @@ class TreeSpotter
     @combined.values.map { |r| r.count(true) }.sum
   end
 
+  def display_value(v, x, y)
+    if v
+      @grid.values[y][x].to_s
+    else
+      "."
+    end
+  end
+
   def to_s
-    @combined.to_s
+    @combined.values.each_with_index.map { |r, y| r.each_with_index.map { |c, x| display_value(c, x, y) }}.map(&:join).join("\n")
   end
 end
 
@@ -81,4 +90,3 @@ tree_spotter.mark_visible_trees
 puts
 puts tree_spotter
 puts tree_spotter.count
-
