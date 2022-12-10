@@ -1,0 +1,36 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+data = AdventOfCode::DataLoader.read("10")
+
+class CPU
+  attr_reader :x, :clock, :values
+  def initialize
+    @x = 1
+    @clock = 0
+    @values = {}
+  end
+
+  def run_program(program, record_values_at)
+    program.each do |command|
+      @clock += 1
+      if record_values_at.include?(@clock)
+        @values[@clock] = @x
+      end
+
+      if command != "noop"
+        @clock += 1
+        if record_values_at.include?(@clock)
+          @values[@clock] = @x
+        end
+        add_x_value = command.ints.first
+        @x += add_x_value
+      end
+    end
+  end
+end
+
+cpu = CPU.new
+cpu.run_program(data, [20, 60, 100, 140, 180, 220])
+puts cpu.values.inspect
+puts cpu.values.to_a.map(&:mult).sum
