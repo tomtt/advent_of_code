@@ -5,6 +5,7 @@ Encoding.default_external = "UTF-8"
 require "advent_of_code/version"
 require "advent_of_code/elf_string"
 require "advent_of_code/elf_array"
+require "colorize"
 require "zeitwerk"
 
 module AdventOfCode
@@ -18,9 +19,10 @@ module AdventOfCode
     def setup_loader
       @loader = Zeitwerk::Loader.for_gem
       @loader.enable_reloading
+      @loader.ignore("#{__dir__}/gist.rb")
+      @loader.setup
       @loader.eager_load
       # @loader.push_dir(ActiveCore.root.join("non-lib/code_dir"))
-      @loader.setup
     end
   end
 end

@@ -21,4 +21,5 @@ Gem::Specification.new do |spec|
   # Just an example dependency using in example DoSomething class
   spec.add_dependency("pastel", "~> 0.8.0")
   spec.add_dependency("zeitwerk")
+  spec.add_dependency("colorize")
 end
