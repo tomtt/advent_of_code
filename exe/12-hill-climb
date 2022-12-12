@@ -1,0 +1,160 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+class GridPosition
+  attr_reader :x, :y, :value
+  attr_accessor :path
+
+  def initialize(x:, y:, value:)
+    @x = x
+    @y = y
+    @value = value
+    @path = nil
+  end
+
+  def distance
+    @path&.size || Float::INFINITY
+  end
+
+  def elevation
+    case @value
+    when "S"
+      "a".ord
+    when "E"
+      "z".ord
+    else
+      @value.ord
+    end
+  end
+
+  def reachable_from?(pos)
+    !@path && (elevation - pos.elevation) <= 1
+  end
+
+  def to_walking_map
+    # @distance ? @value.upcase : @value
+    d = @path ? distance.to_s(32) : @value
+    "%02s " % d
+  end
+
+  def to
+    @value
+  end
+
+  def to_s
+    "(#{@x}, #{@y}, #{@value}) "
+  end
+end
+
+class Grid
+  attr_reader :positions, :start_position, :end_position, :height, :width
+
+  def initialize(positions)
+    @positions = positions
+    @start_position = positions.search { |p| p.value == "S" }
+    @end_position = positions.search { |p| p.value == "E" }
+    @height = @positions.size
+    @width = @positions.first.size
+  end
+
+  def self.from_strings(positions)
+    new(positions.each_with_index.map { |row, y| row.each_with_index.map { |r, x| GridPosition.new(x: x, y: y, value: r) } })
+  end
+
+  def val_to_s(val)
+    if val == @start_position
+      val.value.red
+    elsif val == @end_position
+      val.value.green
+    elsif @end_position.path&.include? val
+      val.value.light_white
+    else
+      val.value.light_black
+    end
+  end
+
+  def distance_to_end
+    @end_position.distance
+  end
+
+  def within_bounds?(x, y)
+    x >= 0 && y >= 0 && x < @width && y < @height
+  end
+
+  def neighbors_of(pos)
+    # NESW
+    candidates = [[pos.x, pos.y - 1], [pos.x + 1, pos.y], [pos.x, pos.y + 1], [pos.x - 1, pos.y]]
+    rotate = 0
+    available = candidates.rotate(rotate).select { |x, y| within_bounds?(x, y) }
+    available.map { |x, y| @positions[y][x] }
+  end
+
+  def to_s
+    @positions.map { |x| x.map { |y| val_to_s(y) }.join }.join("\n")
+  end
+
+  def walking_map
+    @positions.map { |x| x.map(&:to_walking_map).join }.join("\n")
+  end
+
+  def dup
+    Grid.new(@positions.deep_clone)
+  end
+end
+
+class GridWalker
+  attr_reader :grid
+
+  def initialize(grid)
+    @grid = grid
+    @current_position = @grid.start_position
+    @current_path = []
+    @reachable_positions = []
+  end
+
+  def add_start_position(pos)
+    pos.path = []
+    @reachable_positions << pos
+  end
+
+  def walk_to_end
+    add_start_position(@grid.start_position)
+    step_to_end until @reachable_positions.empty?
+  end
+
+  def walk_from_all(value)
+    @grid.start_position.path = []
+    @grid.positions.each do |r|
+      r.each do |pos|
+        add_start_position(pos) if pos.value == value
+      end
+    end
+    step_to_end until @reachable_positions.empty?
+  end
+
+  def current_distance
+    @current_position.distance
+  end
+
+  def step_to_end
+    @current_position = @reachable_positions.shift
+
+    steps_from_here = @grid.neighbors_of(@current_position).select { |n| n.reachable_from?(@current_position) && !n.path }
+    steps_from_here.each do |s|
+      s.path = @current_position.path + [@current_position]
+      @reachable_positions.push(s)
+    end
+  end
+end
+
+grid = Grid.from_strings(File.read(AdventOfCode.root.join("data_files", "12")).to_grid)
+
+regular_walker = GridWalker.new(grid.dup)
+regular_walker.walk_to_end
+puts regular_walker.grid
+puts "Distance to end: #{regular_walker.grid.distance_to_end}"
+
+any_a_walker = GridWalker.new(grid.dup)
+any_a_walker.walk_from_all("a")
+puts any_a_walker.grid
+puts "Distance to end: #{any_a_walker.grid.distance_to_end}"
