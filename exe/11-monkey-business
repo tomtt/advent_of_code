@@ -1,0 +1,109 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+
+class Monkey
+  attr_reader :divisible_by
+
+  def initialize(items:, operation:, test:, throw_when_true:, throw_when_false:)
+    @items = items
+    ops = operation.split(" ")
+    @operator = ops[-2]
+    @operation_value = ops[-1]
+    @divisible_by = test.int
+    @throw_when_true = throw_when_true
+    @throw_when_false = throw_when_false
+  end
+
+  def to_s
+    @items.inspect
+  end
+
+  def self.from_data(data)
+    items = data[1].ints
+    operation = data[2].split(": ").last
+    test = data[3].split(": ").last
+    throw_when_true = data[4].int
+    throw_when_false = data[5].int
+    Monkey.new(
+      items: items,
+      operation: operation,
+      test: test,
+      throw_when_true: throw_when_true,
+      throw_when_false: throw_when_false
+    )
+  end
+
+  def calculate_worry_level(current)
+    arg = @operation_value == "old" ? current : @operation_value.to_i
+    current.send(@operator, arg)
+  end
+
+  def throw_item(worry_level, worry_divisor:, tribe_modulo:)
+    new_worry_level = (calculate_worry_level(worry_level) / worry_divisor) % tribe_modulo
+    target_monkey = new_worry_level % @divisible_by == 0 ? @throw_when_true : @throw_when_false
+    # puts "#{worry_level} -> #{calculate_worry_level(worry_level)} -> #{new_worry_level} ==> #{target_monkey}"
+    [target_monkey, new_worry_level]
+  end
+
+  def thrown_items(worry_divisor:, tribe_modulo:)
+    result = []
+    @items.each do |item|
+      monkey, worry_level = throw_item(item, worry_divisor: worry_divisor, tribe_modulo: tribe_modulo)
+      result << [monkey, worry_level]
+    end
+    @items = []
+    result
+  end
+
+  def receive_item(worry_level)
+    @items << worry_level
+  end
+end
+
+class MonkeyTribe
+  attr_reader :monkey_business_levels, :monkeys
+
+  def initialize(worry_divisor:)
+    @monkeys = []
+    @monkey_business_levels = {}
+    @worry_divisor = worry_divisor
+  end
+
+  def add_monkey(monkey)
+    @monkeys << monkey
+    @monkey_business_levels[monkey] = 0
+  end
+
+  def shenanigans
+    @monkeys.each do |monkey|
+      thrown = monkey.thrown_items(worry_divisor: @worry_divisor, tribe_modulo: tribe_modulo)
+      thrown.each do |monkey_number, worry_level|
+        @monkey_business_levels[monkey] += 1
+        @monkeys[monkey_number].receive_item(worry_level)
+      end
+    end
+  end
+
+  def self.from_data(data, worry_divisor:)
+    tribe = MonkeyTribe.new(worry_divisor: worry_divisor)
+    data.split("").each do |monkey_data|
+      tribe.add_monkey Monkey.from_data(monkey_data)
+    end
+    tribe
+  end
+
+  def tribe_modulo
+    @tribe_modulo ||= @monkeys.map(&:divisible_by).mult
+  end
+end
+
+data = AdventOfCode::DataLoader.read("11")
+
+monkey_tribe_a = MonkeyTribe.from_data(data, worry_divisor: 3)
+20.times { monkey_tribe_a.shenanigans }
+puts monkey_tribe_a.monkey_business_levels.values.sort[-2..-1].mult
+
+monkey_tribe_b = MonkeyTribe.from_data(data, worry_divisor: 1)
+10000.times { monkey_tribe_b.shenanigans }
+puts monkey_tribe_b.monkey_business_levels.values.sort[-2..-1].mult
