@@ -61,15 +61,17 @@ class Grid
     new(positions.each_with_index.map { |row, y| row.each_with_index.map { |r, x| GridPosition.new(x: x, y: y, value: r) } })
   end
 
-  def val_to_s(val)
+  def val_to_s(val, end_pos)
     if val == @start_position
       val.value.red
-    elsif val == @end_position
+    elsif val == end_pos
       val.value.green
-    elsif @end_position.path&.include? val
+    elsif !val.path
+      val.value.light_black
+    elsif end_pos.path&.include? val
       val.value.light_white
     else
-      val.value.light_black
+      val.value.blue
     end
   end
 
@@ -89,8 +91,8 @@ class Grid
     available.map { |x, y| @positions[y][x] }
   end
 
-  def to_s
-    @positions.map { |x| x.map { |y| val_to_s(y) }.join }.join("\n")
+  def to_s(end_pos = @end_position)
+    @positions.map { |x| x.map { |y| val_to_s(y, end_pos) }.join }.join("\n")
   end
 
   def walking_map
@@ -110,6 +112,7 @@ class GridWalker
     @current_position = @grid.start_position
     @current_path = []
     @reachable_positions = []
+    @shortest_path = []
   end
 
   def add_start_position(pos)
@@ -138,6 +141,9 @@ class GridWalker
 
   def step_to_end
     @current_position = @reachable_positions.shift
+
+    # puts @grid.to_s(@current_position)
+    # puts
 
     steps_from_here = @grid.neighbors_of(@current_position).select { |n| n.reachable_from?(@current_position) && !n.path }
     steps_from_here.each do |s|
