@@ -1,0 +1,89 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+
+data = AdventOfCode::DataLoader.read("13.sample").map(&:json_parse).split(nil)
+
+class PacketComparator
+  attr_accessor :debug
+
+  def initialize(debug: true)
+    @debug = debug
+  end
+
+  def log_result(comp, message, level)
+    return comp unless @debug
+
+    if comp.negative?
+      puts "  " * (level + 1) + "- Left side #{message}, so inputs are in the right order"
+    elsif comp.positive?
+      puts "  " * (level + 1) + "- Right side #{message}, so inputs are not in the right order"
+    else
+      puts "  " * (level + 1) + "- Both sides are equal, so inputs are in the right order"
+    end
+    comp
+  end
+
+  def non_empty_list_compare(left, right, level)
+    right.each_with_index do |_, i|
+      return log_result(-1, "ran out of items", level + 1) if i >= left.size
+
+      result = compare(left[i], right[i], level + 1)
+      return log_result(result, "is smaller", level + 1) unless result.zero?
+    end
+
+    if left.size == right.size
+      log_result(0, "", level + 1)
+    else
+      log_result(1, "ran out of items", level + 1)
+    end
+  end
+
+  def list_compare(left, right, level)
+    return 0 if left.empty? && right.empty?
+
+    return -1 if left.empty?
+
+    return 1 if right.empty?
+
+    non_empty_list_compare(left, right, level)
+  end
+
+  def compare(left, right, level = 0)
+    puts "  " * level + "- Compare #{left} vs #{right}" if @debug
+
+    return left - right if left.is_a?(Integer) && right.is_a?(Integer)
+
+    return compare([left], right, level + 1) if left.is_a? Integer
+
+    return compare(left, [right], level + 1) if right.is_a? Integer
+
+    list_compare(left, right, level)
+  end
+
+  def top_compare(left, right, index)
+    puts "== Pair #{index} ==" if @debug
+
+    result = compare(left, right)
+
+    puts "Result: #{result}\n" if @debug
+
+    result
+  end
+
+end
+
+comparator = PacketComparator.new(debug: false)
+
+comparisons = data.each_with_index.map do |d, i|
+  [i + 1, comparator.top_compare(d[0], d[1], i + 1).negative?]
+end
+
+puts "Sum of correct order indices: #{comparisons.select { |d| d[1] }.map(&:first).sum}"
+
+comparator.debug = false
+all_packets = data.map { |d| d[0] } + data.map { |d| d[1] } + [[[2]], [[6]]]
+sorted_packets = all_packets.sort { |a, b| comparator.compare(a, b) }
+two = sorted_packets.index([[2]]) + 1
+six = sorted_packets.index([[6]]) + 1
+puts "Sorted indices of [[2]] and [[6]]: #{two} * #{six} = #{two * six}"

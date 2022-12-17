@@ -1,7 +1,15 @@
+require "json"
+
 module AdventOfCode
   module ElfString
     def elf_priority
       ord > 96 ? ord - 96 : ord - 38
+    end
+
+    def json_parse
+      return nil if empty?
+
+      JSON.parse(self)
     end
 
     def ints
