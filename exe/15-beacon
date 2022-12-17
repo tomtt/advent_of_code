@@ -1,0 +1,150 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+
+# data = AdventOfCode::DataLoader.read("15.sample")
+data = AdventOfCode::DataLoader.read("15")
+
+class Coord
+  attr_reader :x, :y
+
+  def initialize(x:, y:)
+    @x = x
+    @y = y
+  end
+
+  def distance_to(other)
+    (x - other.x).abs + (y - other.y).abs
+  end
+
+  def eql?(other)
+    x == other.x && y == other.y
+  end
+
+  def hash
+    [x, y].hash
+  end
+
+  def to_s
+    "(#{x},#{y})"
+  end
+end
+
+class TunnelSystem
+  BEACON = "B"
+  SENSOR = "S"
+
+  attr_reader :min_x, :max_x
+
+  @@count = 0
+
+  def initialize
+    @sensors = []
+    @locations = {}
+    @min_x = Float::INFINITY
+    @max_x = -Float::INFINITY
+  end
+
+  def add_sensor(sensor)
+    @sensors << sensor
+    @locations[sensor.self_coord] = SENSOR
+    @locations[sensor.beacon_coord] = BEACON
+    left_boundary = sensor.self_coord.x - sensor.distance
+    right_boundary = sensor.self_coord.x + sensor.distance
+    @min_x = left_boundary if left_boundary < @min_x
+    @max_x = right_boundary if right_boundary > @max_x
+  end
+
+  def has_covering_sensor?(coord)
+    @sensors.any? { |s| s.covering?(coord) }
+  end
+
+  def state_at(coord)
+    return @locations[coord] if @locations.has_key?(coord)
+
+    if has_covering_sensor?(coord)
+      "#"
+    else
+      "."
+    end
+  end
+
+  def find_uncovered_space_in_row(row_y:)
+    @@count += 1
+    print "." if @@count % 100000 == 0
+    # puts @@count if @@count % 100000 == 0
+
+    ranges = @sensors.map  { |s| s.x_range_on_row(row_y) }.compact.sort
+
+    full_range = ranges.shift
+    ranges.each do |r|
+      if r[0] <= full_range[1]
+        full_range[1] = [full_range[1], r[1]].max
+      else
+        if r[0] - full_range[1] > 2
+          raise "Gap on row #{row_y} is wider than a single space (#{full_range[1]} - #{r[0]})"
+        else
+          return [full_range[1] + 1, row_y]
+        end
+      end
+    end
+
+    nil
+  end
+
+  def to_map(x_center, y_center)
+    ((y_center - 20)..(y_center + 20)).map { |y| ("%8d" % y) + ((x_center-40)..(x_center+40)).map { |x| state_at(Coord.new(x: x, y: y)) }.join }.join("\n")
+  end
+
+  def count_no_beacons_on_row(row_y)
+    ranges = @sensors.map  { |s| s.x_range_on_row(row_y) }.compact.sort
+    space_count = ranges.map { |r| r[1] }.max - ranges[0][0] + 1
+    beacon_count = @locations.select { |l,v| v == BEACON && l.y == row_y }.size
+    space_count - beacon_count
+  end
+end
+
+class Sensor
+  attr_reader :self_coord, :beacon_coord, :distance
+
+  def initialize(self_coord:, beacon_coord:)
+    @self_coord = self_coord
+    @beacon_coord = beacon_coord
+    @distance = @self_coord.distance_to(@beacon_coord)
+  end
+
+  def self.from_line(line)
+    sx, sy, bx, by = line.ints
+    new(self_coord: Coord.new(x: sx, y: sy), beacon_coord: Coord.new(x: bx, y: by))
+  end
+
+  def x_range_on_row(row_y)
+    x_extend = distance - (self_coord.y - row_y).abs
+    return nil if x_extend.negative?
+
+    [self_coord.x - x_extend, self_coord.x + x_extend]
+  end
+
+  def covering?(coord)
+    @distance >= @self_coord.distance_to(coord)
+  end
+end
+
+sensors = data.map { |d| Sensor.from_line(d) }
+tunnel_system = TunnelSystem.new
+sensors.each { |s| tunnel_system.add_sensor(s) }
+
+row = 2000000
+no_beacon_count = tunnel_system.count_no_beacons_on_row(row)
+puts "Number of squares with no possible beacon on row #{row}: #{no_beacon_count}"
+
+print "Searching for the beacon"
+gaps = (0..4000000).map { |row_y| tunnel_system.find_uncovered_space_in_row(row_y: row_y) }.compact
+puts
+
+if gaps.size > 1
+  puts "more than 1 gap found: #{gaps.inspect}"
+else
+  gap = gaps.first
+  puts "gap at #{gap.inspect}. Frequency: #{4000000 * gap[0] + gap[1]}"
+end
