@@ -1,0 +1,172 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+
+# data = AdventOfCode::DataLoader.read("14.sample")
+data = AdventOfCode::DataLoader.read("14")
+
+module Coordinate
+  def vertical_line_to(other)
+    ends = [y, other.y]
+    (ends.min..ends.max).map { |mapy| [x, mapy] }
+  end
+
+  def horizontal_line_to(other)
+    ends = [x, other.x]
+    (ends.min..ends.max).map { |mapx| [mapx, y] }
+  end
+
+  def line_to(other)
+    raise "From coordinate is not of size 2: #{inspect}" unless size == 2
+    raise "Destination coordinate is not of size 2: #{other.inspect}" unless other.size == 2
+
+    return vertical_line_to(other) if x == other.x
+
+    return horizontal_line_to(other) if y == other.y
+
+    raise "From #{inspect} to #{other.inspect} is not a straight line"
+  end
+
+  def x
+    self[0]
+  end
+
+  def y
+    self[1]
+  end
+
+  def down
+    [x, y + 1]
+  end
+
+  def left_down
+    [x - 1, y + 1]
+  end
+
+  def right_down
+    [x + 1, y + 1]
+  end
+end
+
+class Array
+  include Coordinate
+end
+
+class Spaaace
+  ROCK = "#"
+  SOURCE = "+"
+  EMPTY = " "
+  SAND = "."
+
+  attr_reader :points
+
+  def initialize(source:)
+    @source = source
+    @min_x = Float::INFINITY
+    @max_x = -Float::INFINITY
+    @min_y = Float::INFINITY
+    @max_y = -Float::INFINITY
+    @points = {}
+    add_point(source, SOURCE)
+    @filled = false
+    @lowest_sand_level = 0
+    @floor_y = nil
+  end
+
+  def set_floor
+    @floor_y = @max_y + 2
+  end
+
+  def add_point(p, substance)
+    @min_x = p.x if p.x < @min_x
+    @max_x = p.x if p.x > @max_x
+    @min_y = p.y if p.y < @min_y
+    @max_y = p.y if p.y > @max_y && !@floor_y
+    @points[p] = substance
+  end
+
+  def add_shape(points)
+    ps = points.dup
+    start = points.shift
+    points.each do |point|
+      add_line(start, point)
+      start = point
+    end
+  end
+
+  def add_line(from, dest)
+    from.line_to(dest).each { |p| add_point(p, ROCK) }
+  end
+
+  def substance_at(p)
+    @points[p] || EMPTY
+  end
+
+  def free_at?(pos)
+    !occupied_at?(pos)
+  end
+
+  def occupied_at?(pos)
+    (@floor_y && pos.y >= @floor_y) || [ROCK, SAND].include?(@points[pos])
+  end
+
+  def drop_from_source
+    unless free_at?(@source)
+      @filled = true
+      return
+    end
+
+    pos = @source.dup
+
+    loop do
+      down = pos.down
+      if free_at?(down)
+        if !@floor_y && down.y > @max_y
+          @filled = true
+          return
+        end
+        pos = down
+      else
+        left_down = pos.left_down
+        if free_at?(left_down)
+          pos = left_down
+        elsif free_at? pos.right_down
+          pos = pos.right_down
+        else
+          add_point(pos, SAND)
+          @lowest_sand_level = pos.y if pos.y > @lowest_sand_level
+          return
+        end
+      end
+    end
+  end
+
+  def fill_from_source
+    @filled = false
+    drop_from_source until @filled
+  end
+
+  def s_lines
+    (@min_y..(@max_y + 2)).map { |y| (@min_x..@max_x).map { |x| substance_at([x,y]) }.join }
+  end
+
+  def to_s
+    s_lines.join("\n")
+  end
+
+  def to_s_where_sand
+    s_lines[0..@lowest_sand_level + 1].join("\n")
+  end
+end
+
+spaaace = Spaaace.new(source: [500, 0])
+shapes = data.map { |d| d.split(" -> ") }.map { |d| d.map(&:ints) }
+shapes.each { |shape| spaaace.add_shape(shape) }
+spaaace.fill_from_source
+puts spaaace
+puts "Sand count: #{spaaace.points.values.count(Spaaace::SAND)}"
+
+spaaace.set_floor
+spaaace.fill_from_source
+puts spaaace
+puts "Sand count: #{spaaace.points.values.count(Spaaace::SAND)}"
