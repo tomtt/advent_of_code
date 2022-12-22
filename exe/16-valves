@@ -1,0 +1,159 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+
+# data = AdventOfCode::DataLoader.read("16.sample")
+data = AdventOfCode::DataLoader.read("16")
+
+class Valve
+  attr_reader :name, :flow_rate, :neighbours
+
+  def initialize(name:, flow_rate:, neighbours:)
+    @name = name
+    @flow_rate = flow_rate
+    @neighbours = neighbours
+  end
+
+  def has_flow?
+    @flow_rate > 0
+  end
+
+  def self.from_line(line)
+    # Valve AA has flow rate=0; tunnels lead to valves DD, II, BB
+    valve_name, flow_rate, neighbours = line.match(/Valve (.*) has flow rate=(.*); tunnels? leads? to valves? (.*)/).captures
+    new(name: valve_name, flow_rate: flow_rate.to_i, neighbours: neighbours.split(", "))
+  end
+end
+
+class ValveNetwork
+  attr_accessor :debug
+  attr_reader :valves, :start
+
+  def initialize(start:)
+    @valves = {}
+    @start = start
+    @debug = false
+    @distances = nil
+  end
+
+  def add_valve(valve)
+    @valves[valve.name] = valve
+  end
+
+  def valves_with_flow
+    @valves.keys.select { |k| @valves[k].has_flow? }
+  end
+
+  def log(msg)
+    puts msg if @debug
+  end
+
+  def distance(from:, to:)
+    raise "No from valve \"#{from}\"" unless @valves.has_key?(from)
+    raise "No to valve \"#{from}\"" unless @valves.has_key?(to)
+    raise "From and to are identical \"#{from}\"" unless to != from
+
+    calculate_distances unless @distances
+    @distances[[from,to]]
+  end
+
+  def calculate_distances_from(start:, nodes:, distances:, current_distance:)
+    return distances if nodes.empty?
+
+    neighbours = @valves[start].neighbours
+    neighbours.each do |neighbour|
+      next if distances[neighbour] && distances[neighbour] <= current_distance
+
+      distances[neighbour] = current_distance + 1
+      calculate_distances_from(
+        start: neighbour,
+        nodes: nodes - neighbours,
+        distances: distances,
+        current_distance: current_distance + 1
+      )
+    end
+
+    distances
+  end
+
+  def calculate_distances
+    nodes = valves_with_flow
+    @distances = {}
+    (nodes | [@start]).each do |start|
+      distances = {}.tap { |h| nodes.each { |v| h[v] = nil } }
+      distances[start] = 0
+      calculate_distances_from(start: start, nodes: nodes - [start], distances: distances, current_distance: 0)
+      distances.each do |dest, distance|
+        @distances[[start, dest]] = distance
+      end
+    end
+  end
+end
+
+class SearchState
+  attr_reader :pressure
+
+  def initialize(network:)
+    @network = network
+    @location = network.start
+    @closed_valves = @network.valves_with_flow
+    @minute = 0
+    @flow = 0
+    @pressure = 0
+    @opened_valves = []
+  end
+
+  def <=>(other)
+    @pressure <=> other.pressure
+  end
+
+  def perform_step(valve_to_open)
+    distance = @network.distance(from: @location, to: valve_to_open)
+    raise "Out of minutes" if @minute + distance + 1 > 30
+    @minute += distance + 1
+    @pressure += (distance + 1) * @flow
+    @opened_valves += [valve_to_open]
+    # puts "  " * @opened_valves.size + "- #{self}"
+    @closed_valves -= [valve_to_open]
+    @flow += @network.valves[valve_to_open].flow_rate
+    @location = valve_to_open
+    self
+  end
+
+  def possible_steps
+    @closed_valves.select do |valve|
+      @network.distance(from: @location, to: valve) + 1 + @minute <= 30
+    end
+  end
+
+  def finish
+    minutes_left = 30 - @minute
+    @pressure += minutes_left * @flow
+    @minute += minutes_left
+    self
+  end
+
+  def best_result
+    return finish if possible_steps.empty?
+
+    outcomes = possible_steps.map do |s|
+      dup.perform_step(s).best_result
+    end
+    outcomes.max
+  end
+
+  def to_s
+    "Min: %2d location: %s pressure: %4d flow: %3d opened valves: %s closed valves: %s" % [
+      @minute, @location, @pressure, @flow, @opened_valves, @closed_valves
+    ]
+  end
+end
+
+valves = data.map { |d| Valve.from_line(d) }
+network = ValveNetwork.new(start: "AA")
+valves.each { |valve| network.add_valve(valve) }
+
+start_state = SearchState.new(network: network)
+best = start_state.best_result
+puts "---"
+puts best

@@ -1,0 +1,269 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+
+data = AdventOfCode::DataLoader.read("16.sample")
+# data = AdventOfCode::DataLoader.read("16")
+
+class Valve
+  attr_reader :name, :flow_rate, :neighbours
+
+  def initialize(name:, flow_rate:, neighbours:)
+    @name = name
+    @flow_rate = flow_rate
+    @neighbours = neighbours
+  end
+
+  def has_flow?
+    @flow_rate > 0
+  end
+
+  def self.from_line(line)
+    # Valve AA has flow rate=0; tunnels lead to valves DD, II, BB
+    valve_name, flow_rate, neighbours = line.match(/Valve (.*) has flow rate=(.*); tunnels? leads? to valves? (.*)/).captures
+    new(name: valve_name, flow_rate: flow_rate.to_i, neighbours: neighbours.split(", "))
+  end
+end
+
+class ValveNetwork
+  attr_accessor :debug
+  attr_reader :valves, :start
+
+  def initialize(start:)
+    @valves = {}
+    @start = start
+    @debug = false
+    @distances = nil
+  end
+
+  def add_valve(valve)
+    @valves[valve.name] = valve
+  end
+
+  def valves_with_flow
+    @valves.keys.select { |k| @valves[k].has_flow? }
+  end
+
+  def log(msg)
+    puts msg if @debug
+  end
+
+  def distance(from:, to:)
+    raise "No from valve \"#{from}\"" unless @valves.has_key?(from)
+    raise "No to valve \"#{from}\"" unless @valves.has_key?(to)
+    raise "From and to are identical \"#{from}\"" unless to != from
+
+    calculate_distances unless @distances
+    @distances[[from,to]]
+  end
+
+  def calculate_distances_from(start:, nodes:, distances:, current_distance:)
+    return distances if nodes.empty?
+
+    neighbours = @valves[start].neighbours
+    neighbours.each do |neighbour|
+      next if distances[neighbour] && distances[neighbour] <= current_distance
+
+      distances[neighbour] = current_distance + 1
+      calculate_distances_from(
+        start: neighbour,
+        nodes: nodes - neighbours,
+        distances: distances,
+        current_distance: current_distance + 1
+      )
+    end
+
+    distances
+  end
+
+  def calculate_distances
+    nodes = valves_with_flow
+    @distances = {}
+    (nodes | [@start]).each do |start|
+      distances = {}.tap { |h| nodes.each { |v| h[v] = nil } }
+      distances[start] = 0
+      calculate_distances_from(start: start, nodes: nodes - [start], distances: distances, current_distance: 0)
+      distances.each do |dest, distance|
+        @distances[[start, dest]] = distance
+      end
+    end
+  end
+
+  def distances_data
+    result = ""
+    from_valves = @distances.keys.map(&:first).uniq.sort
+    until from_valves.empty?
+      current_valve = from_valves.shift
+      from_label = "#{current_valve.downcase}-#{@valves[current_valve].flow_rate}"
+      from_valves.each do |v|
+        to_label = "#{v.downcase}-#{@valves[v].flow_rate}"
+        distance = @distances[[current_valve, v]]
+        result += "#{from_label} #{to_label} #{distance}\n"
+      end
+    end
+    result
+  end
+
+  def distances_matrix
+    result = "   | "
+    from_valves = @distances.keys.map(&:first).uniq.sort
+    to_valves = valves_with_flow.sort
+    result += to_valves.map { |v| "%2d" % @valves[v].flow_rate }.join(" | ") + " |\n"
+    result += "   | " + to_valves.join(" | ") + " |\n"
+    from_valves .each do |from|
+      result += from + " | "
+      to_valves.each do |to|
+        result += "%2d | " % @distances[[from, to]]
+      end
+      result += "\n"
+    end
+    result
+  end
+end
+
+class SearchState
+  attr_reader :pressure, :minute, :opened_valves
+  attr_accessor :location
+
+  def initialize(network:, minutes:)
+    @network = network
+    @location = network.start
+    @closed_valves = @network.valves_with_flow
+    @minutes_available = minutes
+    @minute = 0
+    @flow = 0
+    @pressure = 0
+    @opened_valves = []
+    @excluded_valves = []
+  end
+
+  def <=>(other)
+    pressure_at_end <=> other.pressure_at_end
+  end
+
+  def pressure_at_end
+    @pressure + @flow * (@minutes_available - @minute)
+  end
+
+  def exclude_valve(valve)
+    @excluded_valves += [valve]
+    @closed_valves -= [valve]
+  end
+
+  def perform_step(valve_to_open)
+    distance = @network.distance(from: @location, to: valve_to_open)
+    raise "Out of minutes" if @minute + distance + 1 > @minutes_available
+    @minute += distance + 1
+    @pressure += (distance + 1) * @flow
+    @opened_valves += [valve_to_open]
+    # puts "  " * @opened_valves.size + "- #{self}"
+    @closed_valves -= [valve_to_open]
+    @flow += @network.valves[valve_to_open].flow_rate
+    @location = valve_to_open
+    self
+  end
+
+  def possible_steps
+    @closed_valves.select do |valve|
+      @network.distance(from: @location, to: valve) + 1 + @minute <= @minutes_available
+    end
+  end
+
+  def done?
+    possible_steps.empty?
+  end
+
+  def finish
+    minutes_left = @minutes_available - @minute
+    @pressure += minutes_left * @flow
+    @minute += minutes_left
+    self
+  end
+
+  def best_result
+    return finish if done?
+
+    outcomes = possible_steps.map do |s|
+      dup.perform_step(s).best_result
+    end
+    outcomes.max
+  end
+
+  def to_s
+    "Min: %2d location: %s pressure: %4d (-> %4d) flow: %3d opened valves: %s closed valves: %s" % [
+      @minute, @location, @pressure, pressure_at_end, @flow, @opened_valves, @closed_valves
+    ]
+  end
+end
+
+class ElephantCoordinator
+  def initialize(me_search_state:, ele_search_state:)
+    @search_state = {}
+    @search_state[:me] = me_search_state
+    @search_state[:ele] = ele_search_state
+  end
+
+  def done?
+    @search_state[:me].done? && @search_state[:ele].done?
+  end
+
+  def states_to_update
+    return nil if done?
+    return [:me, :ele] if @search_state[:ele].done?
+    return [:ele, :me] if @search_state[:me].done?
+
+    @search_state[:me].minute < @search_state[:ele].minute ? [:me, :ele] : [:ele, :me]
+  end
+
+  def coordinated_solution
+    until done? do
+      actor, waiting = states_to_update
+      state_in_this_cycle = @search_state[actor].dup
+      outcome = state_in_this_cycle.best_result
+
+      new_opened_valve = (outcome.opened_valves - @search_state[actor].opened_valves).first
+      @search_state[actor].perform_step(new_opened_valve)
+      @search_state[waiting].exclude_valve(new_opened_valve)
+      puts "Acting: #{actor} stepped to #{new_opened_valve}"
+      puts "Me:  #{@search_state[:me]}"
+      puts "Ele: #{@search_state[:ele]}"
+    end
+
+    puts @search_state[:me]
+    puts @search_state[:ele]
+  end
+end
+valves = data.map { |d| Valve.from_line(d) }
+network = ValveNetwork.new(start: "AA")
+valves.each { |valve| network.add_valve(valve) }
+network.calculate_distances
+puts network.distances_matrix
+(require('pry'); binding.pry)
+puts network.distances_data
+
+p1_start_state = SearchState.new(network: network, minutes: 30)
+puts p1_start_state.best_result
+
+me_start_state = SearchState.new(network: network, minutes: 26)
+ele_start_state = SearchState.new(network: network, minutes: 26)
+
+elephant_coordinator = ElephantCoordinator.new(me_search_state: me_start_state, ele_search_state: ele_start_state)
+puts elephant_coordinator.coordinated_solution
+# start_state.exclude_valve("MA")
+# start_state.perform_step("HR")
+# start_state.exclude_valve("II")
+# start_state.perform_step("FQ")
+# start_state.exclude_valve("AS")
+# start_state.perform_step("TV")
+# start_state.exclude_valve("MW")
+# # start_state.perform_step("MA")
+# # start_state.exclude_valve("HR")
+# # start_state.perform_step("II")
+# # start_state.exclude_valve("FQ")
+# # start_state.perform_step("AS")
+# # start_state.exclude_valve("TV")
+# # start_state.perform_step("MW")
+# start_state.location = "FQ"
+# best = start_state.best_result
+# puts "---"
+# puts best
