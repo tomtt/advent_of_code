@@ -1,0 +1,250 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+
+data = AdventOfCode::DataLoader.read("17.sample")
+# data = AdventOfCode::DataLoader.read("17")
+
+class PyroclasticRock
+  attr_reader :shape, :matrix
+
+  SHAPE_MATRICES = {
+    horizontal: [[nil, nil, :rk, :rk, :rk, :rk, nil]],
+    plus: [
+      [nil, nil, nil, :rk, nil, nil, nil],
+      [nil, nil, :rk, :rk, :rk, nil, nil],
+      [nil, nil, nil, :rk, nil, nil, nil]
+    ],
+    corner: [
+      [nil, nil, nil, nil, :rk, nil, nil],
+      [nil, nil, nil, nil, :rk, nil, nil],
+      [nil, nil, :rk, :rk, :rk, nil, nil]
+    ],
+    vertical: [
+      [nil, nil, :rk, nil, nil, nil, nil],
+      [nil, nil, :rk, nil, nil, nil, nil],
+      [nil, nil, :rk, nil, nil, nil, nil],
+      [nil, nil, :rk, nil, nil, nil, nil]
+    ],
+    box: [
+      [nil, nil, :rk, :rk, nil, nil, nil],
+      [nil, nil, :rk, :rk, nil, nil, nil]
+    ]
+  }
+
+  def initialize(shape:)
+    @shape = shape
+    @matrix = SHAPE_MATRICES[shape]
+  end
+
+  def height
+    @matrix.size
+  end
+
+  def can_move_left?
+    @matrix.map(&:first).compact.empty?
+  end
+
+  def can_move_right?
+    @matrix.map(&:last).compact.empty?
+  end
+
+  def nudge_left
+    @matrix.each { |row| row.push(row.shift) } if can_move_left?
+  end
+
+  def nudge_right
+    @matrix.each { |row| row.unshift(row.pop) } if can_move_right?
+  end
+end
+
+class PyroclasticTower
+  def initialize
+    @tower = []
+    @rock = nil
+    @rock_depth = nil
+  end
+
+  def matrix(index:, height:)
+    @tower[index..(index+height)]
+  end
+
+  def add_layer
+    @tower.unshift [nil] * 7
+  end
+
+  def rock_dropping?
+    @rock
+  end
+
+  def rock_can_move?(move:)
+    true
+  end
+
+  def tower_height
+    @tower.size
+  end
+
+  def move_rock(move:)
+    return unless rock_can_move?(move: move)
+
+    if move == "<"
+      @rock.nudge_left
+    elsif move == ">"
+      @rock.nudge_right
+    else
+      raise "Unknown move: #{move}"
+    end
+  end
+
+  def solidify_rock
+    # (require('pry'); binding.pry)
+    overlap = rock_overlap
+    overlap.reverse.each { |r| @tower.unshift(r) }
+
+    puts "Rock solidified"
+    @rock = nil
+  end
+
+  def rock_overlap(height_offset: 0)
+    rock_matrix = @rock.matrix.map { |r| r.tr(:rk, :st) }
+    return rock_matrix unless @rock_depth.positive?
+
+    height = @rock.matrix.size
+    tower_matrix = matrix(index: @rock_depth + height_offset, height: height)
+  end
+
+  def rock_touching?
+    # Is truthy if the rock can not drop down because there is already either floor or solidified rock in the way
+    # Another way of asking is: if the rock were one layer lower, would it be touching anything?
+    return false if @rock_depth.negative? # fully above anything in tower
+    return true if @rock_depth == tower_height # floor reached
+
+    rock_overlap(height_offset: 1)
+  end
+
+  def drop_rock
+    if @rock_depth.negative?
+      @rock_depth += 1
+      return
+    end
+
+    if rock_touching?
+      solidify_rock
+      return
+    end
+  end
+
+  def tick(move:)
+    raise "No rock currently falling" unless rock_dropping?
+
+    move_rock(move: move)
+    drop_rock
+
+    puts self
+    puts
+  end
+
+  def form_new_rock(rock:)
+    raise "Rock @rock is still falling" if rock_dropping?
+
+    @rock = rock
+    @rock_depth = -4
+    # (require('pry'); binding.pry)
+    puts to_s
+  end
+
+  def character_for_item(value)
+    {
+      nil => ".",
+      :rk => "@",
+      :st => "#"
+    }[value] || "?"
+  end
+
+  def rock_layer(index)
+    rock_index = @rock.height + index - @rock_depth - 1
+    return [nil] * 7 if rock_index.negative?
+    return [nil] * 7 if rock_index > @rock.height
+
+    @rock.matrix[rock_index]
+  end
+
+  def tower_layer(index)
+    return [nil] * 7 if index < 0
+
+    @tower[index] || [nil] * 7
+  end
+
+  def layer_to_s(index)
+    row = if rock_dropping?
+      tower_layer(index).logical_or(rock_layer(index)).map { |i| character_for_item(i) }.join
+    else
+      tower_layer(index).map { |i| character_for_item(i) }.join
+    end
+    "|#{row}|"
+  end
+
+  def rock_start_layer
+    return 0 unless rock_dropping?
+
+    @rock_depth - @rock.height + 1
+  end
+
+  def to_s
+    layer_range = ([rock_start_layer, 0].min..([tower_height - 1, 0].max))
+    layer_range.map { |layer_index| layer_to_s(layer_index) }.join("\n") + "\n+-------+\n"
+  end
+end
+
+class PyroclasticChamber
+  def initialize(moves:, tower:, shapes:)
+    @moves = moves.join.chars
+    @move_index = 0
+    @shapes = shapes
+    @shape_index = 0
+    @tower = tower
+  end
+
+  def current_move
+    @moves[@move_index]
+  end
+
+  def current_shape
+    @shapes[@shape_index]
+  end
+
+  def next_move!
+    @move_index += 1
+    @move_index %= @moves.size
+  end
+
+  def next_shape!
+    @shape_index += 1
+    @shape_index %= @shapes.size
+  end
+
+  def drop_shape_on_tower
+    @tower.form_new_rock(rock: PyroclasticRock.new(shape: current_shape))
+    puts "Dropping new shape #{current_shape}"
+    next_shape!
+  end
+
+  def perform_move
+    @tower.tick(move: current_move)
+    next_move!
+  end
+
+  def tick
+    drop_shape_on_tower unless @tower.rock_dropping?
+    perform_move
+  end
+end
+
+tower = PyroclasticTower.new
+chamber = PyroclasticChamber.new(moves: data, tower: tower, shapes: [:corner, :horizontal, :plus, :corner, :vertical, :box])
+40.times { chamber.tick }
+puts "======="
+
+(require('pry'); binding.pry)
+:foo
