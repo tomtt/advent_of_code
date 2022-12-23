@@ -23,7 +23,7 @@ class Grid
   end
 
   def or(other)
-    result = @values.each_with_index.map { |r, i| r.or other.values[i] }
+    result = @values.each_with_index.map { |r, i| r.binary_or other.values[i] }
     Grid.new(result.deep_clone)
   end
 

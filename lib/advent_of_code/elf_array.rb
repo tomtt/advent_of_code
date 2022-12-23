@@ -31,7 +31,7 @@ module AdventOfCode
       each { |r| r.each { |c| return c if block.call(c) } }
     end
 
-    def or(other)
+    def binary_or(other)
       each_with_index.map { |e, i| e | other[i] }
     end
 
