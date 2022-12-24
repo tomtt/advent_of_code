@@ -1,0 +1,8 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+
+data = AdventOfCode::DataLoader.read("nn.sample")
+# data = AdventOfCode::DataLoader.read("nn")
+
+
