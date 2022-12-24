@@ -1,0 +1,137 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+
+# data = AdventOfCode::DataLoader.read("18.test")
+# data = AdventOfCode::DataLoader.read("18.sample")
+data = AdventOfCode::DataLoader.read("18")
+
+class LavaDroplet
+  attr_reader :cubes
+
+  def initialize
+    @cubes = {}
+    @min_coords = [Float::INFINITY, Float::INFINITY, Float::INFINITY]
+    @max_coords = [-Float::INFINITY, -Float::INFINITY, -Float::INFINITY]
+  end
+
+  def add_cube_at(location)
+    raise "Existing cube at #{location}" if @cubes.has_key?(location)
+    @min_coords = @min_coords.zip(location).map(&:min)
+    @max_coords = @max_coords.zip(location).map(&:max)
+    @cubes[location] = :cube
+  end
+
+  def char_for_value_at(location)
+    value = @cubes[location]
+    return "." unless value
+    return "#" if value == :cube
+    return "~" if value == :water
+    "?"
+  end
+
+  def pour_water_at(location)
+    to_pour_from = [location]
+    until to_pour_from.empty?
+      current_pouring_location = to_pour_from.shift
+      next if outside_bounding_box?(current_pouring_location)
+      current_value = @cubes[current_pouring_location]
+      next if current_value
+
+      @cubes[current_pouring_location] = :water
+      to_pour_from += neighbor_locations_from(current_pouring_location)
+    end
+  end
+
+  def neighbor_locations_from(location)
+    offsets = [
+      [-1,  0,  0],
+      [ 1,  0,  0],
+      [ 0, -1,  0],
+      [ 0,  1,  0],
+      [ 0,  0, -1],
+      [ 0,  0,  1]
+    ]
+    candidate_locations = offsets.map { |offset| location.zip(offset) }.map { |z| z.map(&:sum) }
+    candidate_locations.select { |l| !outside_bounding_box?(l) }
+  end
+
+  def to_s
+    result = ""
+    x_range = (@min_coords[0] - 1)..(@max_coords[0] + 1)
+    y_range = (@min_coords[1] - 1)..(@max_coords[1] + 1)
+    z_range = (@min_coords[2] - 1)..(@max_coords[2] + 1)
+    z_range.each do |z|
+      result << "---------- z: #{z}\n"
+      y_range.each do |y|
+        x_range.each do |x|
+          result += char_for_value_at([x,y,z])
+        end
+        result += "\n"
+      end
+    end
+    result
+  end
+
+  def cube_locations
+    @cubes.select { |_,v| v == :cube }
+  end
+
+  def non_cube_locations_around(location)
+    neighbor_locations_from(location).select { |l| @cubes[l] != :cube }
+  end
+
+  def water_locations_around(location)
+    neighbor_locations_from(location).select { |l| @cubes[l] == :water }
+  end
+
+  def free_surfaces
+    count = 0
+    cube_locations.each do |location, _|
+      count += non_cube_locations_around(location).size
+    end
+    count
+  end
+
+  def surfaces_touching_water
+    count = 0
+    cube_locations.each do |location, _|
+      count += water_locations_around(location).size
+    end
+    count
+  end
+
+  def outside_bounding_box?(location)
+    return true if location[0] > @max_coords[0] + 1
+    return true if location[1] > @max_coords[1] + 1
+    return true if location[2] > @max_coords[2] + 1
+    return true if location[0] < @min_coords[0] - 1
+    return true if location[1] < @min_coords[1] - 1
+    return true if location[2] < @min_coords[2] - 1
+
+    false
+  end
+
+  def report
+    result = ""
+    result << "There are #{@cubes.size} cubes\n"
+    result << "Min coords are #{@min_coords.inspect}\n"
+    result << "Max coords are #{@max_coords.inspect}\n"
+    # result << "There are #{free_surfaces} free surfaces"
+    result
+  end
+end
+
+lava_droplet = LavaDroplet.new
+data.map(&:ints).each { |l| lava_droplet.add_cube_at(l) }
+puts lava_droplet.report
+lava_droplet.pour_water_at([0,0,0])
+puts lava_droplet
+puts "Number of surfaces not touching another cube: #{lava_droplet.free_surfaces}"
+puts "Number of surfaces touching water: #{lava_droplet.surfaces_touching_water}"
+# puts lava_droplet.coords_outside
+(require('pry'); binding.pry)
+:foo
+
+# guessed 1125 - too low
+# guessed 2505 - too high
