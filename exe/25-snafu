@@ -1,0 +1,41 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+
+# data = AdventOfCode::DataLoader.read("25.sample")
+data = AdventOfCode::DataLoader.read("25")
+
+class Integer
+  SNAFU_DIGIT_MAP = {
+    -2 => "=",
+    -1 => "-",
+    0 => "0",
+    1 => "1",
+    2 => "2"
+  }
+
+  def to_snafu
+    exp = 0
+    remain = self
+    digits = []
+    until remain <= 0
+      digit = (remain % 5 ** (exp + 1)) / 5 ** exp
+      digit -= 5 if digit > 2
+      digits.unshift(digit)
+      remain -= digit * 5 ** exp
+      exp += 1
+    end
+    digits.map { |d| SNAFU_DIGIT_MAP[d] }.join
+  end
+end
+
+class String
+  def from_snafu
+    digits = tr("-=012", "10234").chars
+    digits.reverse.each_with_index.map { |d, i| (d.to_i - 2) * 5 ** i }.sum
+  end
+end
+
+sum = data.map(&:from_snafu).sum
+puts "Sum is #{sum}"
+puts "In snafu thats #{sum.to_snafu}"
