@@ -1,0 +1,76 @@
+#!/usr/bin/env bundle exec ruby
+
+require "advent_of_code"
+
+# data = AdventOfCode::DataLoader.read("20.sample")
+data = AdventOfCode::DataLoader.read("20")
+
+class Number
+  attr_reader :value
+
+  def initialize(value)
+    @value = value
+  end
+end
+
+class EncryptionFile
+  attr_reader :list
+
+  def initialize(encryption_key:, cycles:)
+    @encryption_key = encryption_key
+    @cycles = cycles
+    @list = []
+    @moving_order = []
+    @zero = nil
+  end
+
+  def add_number(number)
+    number = Number.new(number * @encryption_key)
+    @list << number
+    @moving_order << number
+    @zero ||= number if number.value == 0
+  end
+
+  def wrap_size
+    @wrap_size ||= @list.size - 1
+  end
+
+  def move(number)
+    current_index = @list.index(number)
+    unwrapped_new_index = current_index + number.value
+    new_index = unwrapped_new_index - (unwrapped_new_index / wrap_size) * wrap_size
+
+    @list.delete(number)
+    @list.insert(new_index, number)
+  end
+
+  def move_all
+    @cycles.times do
+      cycle_order = @moving_order.dup
+      cycle_order.size.times { move(cycle_order.shift) }
+    end
+  end
+
+  def getfromzero(i)
+    zero_index = @list.index(@zero)
+    @list[(zero_index + i) % @list.size].value
+  end
+
+  def grove_coordinates
+    [getfromzero(1000), getfromzero(2000), getfromzero(3000)]
+  end
+
+  def to_s
+    "List: #{@list.map(&:value).inspect} to_move: #{@moving_order.count}"
+  end
+end
+
+def show_decrypted_grove_coordinates(data:, encryption_key: 1, cycles: 1)
+  encryption_file = EncryptionFile.new(encryption_key: encryption_key, cycles: cycles)
+  data.map(&:to_i).each { |n| encryption_file.add_number(n) }
+  encryption_file.move_all
+  puts "Grove coordinates: #{encryption_file.grove_coordinates.inspect} sum: #{encryption_file.grove_coordinates.sum}"
+end
+
+show_decrypted_grove_coordinates(data: data)
+show_decrypted_grove_coordinates(data: data, encryption_key: 811589153, cycles: 10)
