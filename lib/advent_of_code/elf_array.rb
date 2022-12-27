@@ -31,8 +31,26 @@ module AdventOfCode
       each { |r| r.each { |c| return c if block.call(c) } }
     end
 
+    def logical_or(other)
+      return self unless other
+
+      each_with_index.map { |e, i| e || other[i] }
+    end
+
+    def logical_and(other)
+      each_with_index.map { |e, i| e && other[i] }
+    end
+
     def binary_or(other)
       each_with_index.map { |e, i| e | other[i] }
+    end
+
+    def binary_and(other)
+      each_with_index.map { |e, i| e & other[i] }
+    end
+
+    def tr(from, to)
+      map { |x| x == from ? to : x }
     end
 
     def split(element)
